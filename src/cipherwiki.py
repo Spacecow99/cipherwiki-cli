@@ -3,74 +3,122 @@
 #   cipherwiki-cli - cipherwiki.py
 #
 #   CLI tool for managing multiple cipherwiki pages/installations
-#   for multiple topics. 
+#   for multiple topics.
 #
 #   Author: Spacecow
 #   Title: Cipherwiki-CLI
 #   Date: 15/03/15
-#   Description: This script makes cipherwiki a fast, simple, secure and easy to manage personal wiki option.
+#   Description:
+#       Turn cipherwiki in to a fast, secure and simple to manage
+#       personal wiki option.
 #
-#
+
 
 import os
 import sys
 import urllib
 import shutil
-import os.path
 import argparse
 import webbrowser
-import ConfigParser
 
 
-def list_wiki(wiki_folder):
-    """"""
-    pass
+global wiki_folder
+wiki_folder = "{0}/.cipherwiki/".format(os.getenv('HOME'))
 
 
-def new_wiki(wiki_name, wiki_file, wiki_folder):
-    """"""
-    pass
+def list_wiki():
+    """
+    """
+    for w in os.listdir(wiki_folder):
+        print('[-] {0}'.format(w.strip('.html')))
 
 
-def del_wiki(wiki_name, wiki_folder):
-    """"""
-    pass
+def new_wiki(wiki_name, wiki_file='empty-cipherwiki-0.02.html'):
+    """
+    """
+    if not os.path.isfile("{0}{1}".format(wiki_folder, wiki_file)):
+        sys.stderr.write("[!] Empty wiki file not found, please use --download\n")
+        sys.exit(1)
+
+    if os.path.isfile("{0}{1}.html".format(wiki_folder, wiki_name)):
+        sys.stderr.write("[!] Wiki file {0} already exists\n".format(wiki_name))
+        sys.exit(2)
+
+    shutil.copy("{0}{1}".format(wiki_folder, wiki_file),
+                "{0}{1}.html".format(wiki_folder, wiki_name))
 
 
-def download_cipherwiki(target='empty-cipherwiki-0.02.html'):
-    """Download a new copy of cipherwiki from github"""
-    raw_source = "https://raw.githubusercontent.com/felipedaragon/cipherwiki/master/empty-cipherwiki-0.02.html"
+def del_wiki(wiki_name):
+    """
+    """
+    if not os.path.isfile("{0}{1}.html".format(wiki_folder, wiki_name)):
+        sys.stderr.write("[!] Could not find wiki file {0}\n".format(wiki_name))
+        sys.exit(3)
+
+    os.remove("{0}{1}.html".format(wiki_folder, wiki_name))
+
+
+
+def download_cipherwiki(target='empty-cipherwiki-0.02.html',
+                        source_url=("https://raw.githubusercontent.com"
+                                    "/Spacecow99/cipherwiki/master/"
+                                    "empty-cipherwiki-0.02.html")):
+    """
+    Download a new copy of cipherwiki from github
+    """
     try:
-        source = urllib.urlopen(raw_source)
+        with open("{0}{1}".format(wiki_folder, target), 'w') as f:
+            source = urllib.urlopen(source_url)
+            f.write(source.read())
+        print("[+] Download successful, file saved to {0}.".format(target))
     except():
         sys.stderr.write('[!] Could not download cipherwiki source file.\n')
-        sys.exit(3)
-    with open(target, 'w') as f:
-        f.write(source.read())
-    print("[*] Download successful, file saved to {0}.".format(target))
-
-
-def build_config(target='cipherwiki.cfg'):
-    """Create and write a new configuration file"""
-    config = ConfigParser.SafeConfigParser()
-    config.add_section('CIPHERWIKI')
-    config.set('CIPHERWIKI', 'WIKI_FOLDER', '{0}/.cipherwiki/'.format(os.getenv('HOME')))
-    config.set('CIPHERWIKI', 'WIKI_FILE', 'empty-cipherwiki-0.02.html')
-    config.set('CIPHERWIKI', 'WIKI_EXAMPLE', 'true')
+        sys.exit(4)
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='cipherwiki', description='CLI tool for managing multiple cipherwiki pages for multiple topics.')
-    parser.add_argument('wikis', metavar='WIKI', type=str, action='store', nargs='+', help='')
-    parser.add_argument('-l', '--list', action='store_true', help='')
-    parser.add_argument('-n', '--new', metavar='WIKI', action='store', help='')
-    parser.add_argument('-r', '--remove', metavar='WIKI', action='store', help='')
-    parser.add_argument('-c', '--configuration', metavar='PATH', action='store', help='Create a default config file')
-    parser.add_argument('-d', '--download', metavar='PATH', action='store', help='Download a new copy of cipherwiki from github')
-    parser.add_argument('-v', '--version', action='store_true', help='Print cipherwiki version information')  #replace with builtin argparse version type
+    parser = argparse.ArgumentParser(prog='cipherwiki-cli',
+                                     description=("CLI tool for managing "
+                                     "multiple cipherwiki pages "
+                                     "for multiple topics."))
+    parser.add_argument('-w', '--wiki', metavar='WIKI', type=str,
+                        action='store', nargs='+',
+                        help='Open wiki(s) for editing in the web browser')
+    parser.add_argument('-l', '--list', action='store_true',
+                        help='List all available wikis')
+    parser.add_argument('-n', '--new', metavar='WIKI', action='store',
+                        help='Create a new empty wiki file')
+    parser.add_argument('-r', '--remove', metavar='WIKI', action='store',
+                        help='Delete specified wiki file')
+    parser.add_argument('-d', '--download', action='store_true',
+                        help='Download a new copy of cipherwiki from github')
+    parser.add_argument('-v', '--version', action='version',
+                        version='Cipherwiki-CLI 0.4')
     args = parser.parse_args()
 
- 
+    # Setup cipherwiki folder under ~/.cipherwiki
+    if not os.path.isdir(wiki_folder):
+        sys.stderr.write("[+] Creating cipherwiki folder in '{0}'.\n".format(wiki_folder))
+        os.mkdir(wiki_folder)
+        download_cipherwiki()
+
+    if args.download:
+        download_cipherwiki()
+
+    if args.list:
+        list_wiki()
+    elif args.new:
+        new_wiki(args.new)
+    elif args.remove:
+        del_wiki(args.remove)
+    else:
+        for wiki in args.wiki:
+            if os.path.isfile("{0}{1}.html".format(wiki_folder, wiki)):
+                webbrowser.open_new_tab("file://{0}{1}.html".format(wiki_folder, wiki))
+            else:
+                sys.stderr.write("[!] Could not find the wiki {0}\n".format(wiki))
+
+
 if __name__ == '__main__':
     try:
         main()
